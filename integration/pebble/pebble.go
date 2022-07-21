@@ -40,7 +40,7 @@ func New(path string, close func() error, drop func()) (*Database, error) {
 		MaxOpenFiles:                1000,
 		MemTableSize:                4 << 20, // default: 4 MB
 		MemTableStopWritesThreshold: 2, // writes are stopped when sum of the queued memtable sizes exceeds
-		MaxConcurrentCompactions:    1,
+		MaxConcurrentCompactions:    3, // important for big imports performance
 		NumPrevManifest:             1, // keep one old manifest
 		WALBytesPerSync:             0, // default 0 (matches RocksDB)
 	})
