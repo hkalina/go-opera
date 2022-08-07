@@ -149,6 +149,7 @@ func initFlags() {
 		utils.WSApiFlag,
 		utils.WSAllowedOriginsFlag,
 		utils.WSPathPrefixFlag,
+		utils.WSExecutionTimeLimit,
 		utils.IPCDisabledFlag,
 		utils.IPCPathFlag,
 		RPCGlobalGasCapFlag,
