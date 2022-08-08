@@ -47,3 +47,5 @@ require (
 replace github.com/ethereum/go-ethereum => github.com/Fantom-foundation/go-ethereum v1.10.8-ftm-rc6
 
 replace github.com/dvyukov/go-fuzz => github.com/guzenok/go-fuzz v0.0.0-20210103140116-f9104dfb626f
+
+replace github.com/Fantom-foundation/lachesis-base => github.com/hkalina/lachesis-base v0.0.0-20220808190605-af4529f4f0e7

@@ -52,6 +52,20 @@ var (
 	blockInsertTimer     = metrics.GetOrRegisterTimer("chain/inserts", nil)
 	blockExecutionTimer  = metrics.GetOrRegisterTimer("chain/execution", nil)
 	blockWriteTimer      = metrics.GetOrRegisterTimer("chain/write", nil)
+
+	executionExternalTimer  = metrics.GetOrRegisterTimer("chain/execution/external", nil)
+	beforeExecutionTimer  = metrics.GetOrRegisterTimer("chain/before/execute", nil)
+
+	txsCounter  = metrics.GetOrRegisterCounter("chain/txs/count", nil)
+	txsGasCounter  = metrics.GetOrRegisterCounter("chain/txs/gas", nil)
+	evmTimeCounter = metrics.GetOrRegisterCounter("chain/txs/evmtime", nil)
+	dbTimeCounter  = metrics.GetOrRegisterCounter("chain/txs/dbtime", nil)
+	hashTimeCounter = metrics.GetOrRegisterCounter("chain/txs/hashtime", nil)
+
+	waitingBlockProcCounter   = metrics.GetOrRegisterCounter("lachesis/worker/daginserter/waitingblockproc", nil)
+	preInternalCounter  = metrics.GetOrRegisterCounter("chain/txs/preinternal", nil)
+	postInternalCounter  = metrics.GetOrRegisterCounter("chain/txs/postinternal", nil)
+	sealingCounter  = metrics.GetOrRegisterCounter("chain/txs/sealing", nil)
 )
 
 type ExtendedTxPosition struct {
@@ -90,7 +104,9 @@ func consensusCallbackBeginBlockFn(
 	verWatcher *verwatcher.VerWarcher,
 ) lachesis.BeginBlockFn {
 	return func(cBlock *lachesis.Block) lachesis.BlockCallbacks {
+		waitingStart := time.Now()
 		wg.Wait()
+		waitingBlockProcCounter.Inc(time.Since(waitingStart).Nanoseconds())
 		start := time.Now()
 
 		// Note: take copies to avoid race conditions with API calls
@@ -251,11 +267,14 @@ func consensusCallbackBeginBlockFn(
 
 				evmProcessor := blockProc.EVMModule.Start(blockCtx, statedb, evmStateReader, onNewLogAll, es.Rules, es.Rules.EvmChainConfig(store.GetUpgradeHeights()))
 				executionStart := time.Now()
+				beforeExecutionTimer.Update(executionStart.Sub(start)) // from block processing start to EVM init
 
 				// Execute pre-internal transactions
+				preInternalStart := time.Now()
 				preInternalTxs := blockProc.PreTxTransactor.PopInternalTxs(blockCtx, bs, es, sealing, statedb)
 				preInternalReceipts := evmProcessor.Execute(preInternalTxs)
 				bs = txListener.Finalize()
+				preInternalCounter.Inc(time.Since(preInternalStart).Nanoseconds())
 				for _, r := range preInternalReceipts {
 					if r.Status == 0 {
 						log.Warn("Pre-internal transaction reverted", "txid", r.TxHash.String())
@@ -264,6 +283,7 @@ func consensusCallbackBeginBlockFn(
 
 				// Seal epoch if requested
 				if sealing {
+					sealingStart := time.Now()
 					sealer.Update(bs, es)
 					prevUpg := es.Rules.Upgrades
 					bs, es = sealer.SealEpoch() // TODO: refactor to not mutate the bs, it is unclear
@@ -276,13 +296,16 @@ func consensusCallbackBeginBlockFn(
 					store.SetBlockEpochState(bs, es)
 					newValidators = es.Validators
 					txListener.Update(bs, es)
+					sealingCounter.Inc(time.Since(sealingStart).Nanoseconds())
 				}
 
 				// At this point, newValidators may be returned and the rest of the code may be executed in a parallel thread
 				blockFn := func() {
 					// Execute post-internal transactions
+					postInternalStart := time.Now()
 					internalTxs := blockProc.PostTxTransactor.PopInternalTxs(blockCtx, bs, es, sealing, statedb)
 					internalReceipts := evmProcessor.Execute(internalTxs)
+					postInternalCounter.Inc(time.Since(postInternalStart).Nanoseconds())
 					for _, r := range internalReceipts {
 						if r.Status == 0 {
 							log.Warn("Internal transaction reverted", "txid", r.TxHash.String())
@@ -308,12 +331,32 @@ func consensusCallbackBeginBlockFn(
 						txs = append(txs, e.Txs()...)
 					}
 
+					// store metrics before-state
+					triehashbefore := statedb.AccountHashes + statedb.StorageHashes
+					trieprocbefore := statedb.SnapshotAccountReads + statedb.AccountReads + statedb.AccountUpdates +
+						statedb.SnapshotStorageReads + statedb.StorageReads + statedb.StorageUpdates +
+						statedb.SnapshotCommits + statedb.AccountCommits + statedb.StorageCommits
+					txsProcessingStart := time.Now()
+
 					_ = evmProcessor.Execute(txs)
+
+					// mark metrics
+					txsProcessingTime := time.Since(txsProcessingStart)
+					triehashext := statedb.AccountHashes + statedb.StorageHashes - triehashbefore
+					trieprocext := statedb.SnapshotAccountReads + statedb.AccountReads + statedb.AccountUpdates +
+						statedb.SnapshotStorageReads + statedb.StorageReads + statedb.StorageUpdates +
+						statedb.SnapshotCommits + statedb.AccountCommits + statedb.StorageCommits - trieprocbefore
+					executionExternalTimer.Update(txsProcessingTime)
+					evmTimeCounter.Inc(txsProcessingTime.Nanoseconds())
+					dbTimeCounter.Inc(trieprocext.Nanoseconds())
+					hashTimeCounter.Inc(triehashext.Nanoseconds())
+					txsCounter.Inc(int64(len(txs)))
 
 					evmBlock, skippedTxs, allReceipts := evmProcessor.Finalize()
 					block.SkippedTxs = skippedTxs
 					block.Root = hash.Hash(evmBlock.Root)
 					block.GasUsed = evmBlock.GasUsed
+					txsGasCounter.Inc(int64(evmBlock.GasUsed))
 
 					// memorize event position of each tx
 					txPositions := make(map[common.Hash]ExtendedTxPosition)
