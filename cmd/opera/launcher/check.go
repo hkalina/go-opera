@@ -1,6 +1,7 @@
 package launcher
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/Fantom-foundation/lachesis-base/inter/idx"
@@ -20,6 +21,25 @@ func checkEvm(ctx *cli.Context) error {
 	cfg := makeAllConfigs(ctx)
 
 	rawDbs := makeDirectDBsProducer(cfg)
+
+	db, err := rawDbs.OpenDB("gossip")
+	if err != nil {
+		utils.Fatalf("unable to open gossip; %s", err)
+	}
+	defer db.Close()
+
+	prefixes := []rune{'E','F','G','H','I','Q','R','S','T','U'}
+	for _, prefix := range prefixes {
+		it := db.NewIterator([]byte{byte(prefix)}, nil)
+		if it.Next() {
+			fmt.Printf("Prefix %c is NOT EMPTY\n", prefix)
+		} else {
+			fmt.Printf("Prefix %c is EMPTY\n", prefix)
+		}
+		it.Release()
+	}
+	utils.Fatalf("Prefix checking done")
+
 	gdb := makeGossipStore(rawDbs, cfg)
 	defer gdb.Close()
 	evms := gdb.EvmStore()
