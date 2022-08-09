@@ -22,23 +22,23 @@ func checkEvm(ctx *cli.Context) error {
 
 	rawDbs := makeDirectDBsProducer(cfg)
 
-	db, err := rawDbs.OpenDB("gossip")
-	if err != nil {
-		utils.Fatalf("unable to open gossip; %s", err)
-	}
-	defer db.Close()
-
-	prefixes := []rune{'E','F','G','H','I','Q','R','S','T','U'}
+	prefixes := []byte{'E','F','G','H','I','J','Q','R','S','T','U','e'}
 	for _, prefix := range prefixes {
-		it := db.NewIterator([]byte{byte(prefix)}, nil)
+		db, err := rawDbs.OpenDB("gossip/"+string([]byte{prefix}))
+		if err != nil {
+			utils.Fatalf("unable to open gossip; %s", err)
+		}
+
+		it := db.NewIterator([]byte{}, nil)
 		if it.Next() {
 			fmt.Printf("Prefix %c is NOT EMPTY\n", prefix)
 		} else {
 			fmt.Printf("Prefix %c is EMPTY\n", prefix)
 		}
 		it.Release()
+		db.Close()
 	}
-	utils.Fatalf("Prefix checking done")
+	utils.Fatalf("Prefixes checking done")
 
 	gdb := makeGossipStore(rawDbs, cfg)
 	defer gdb.Close()
