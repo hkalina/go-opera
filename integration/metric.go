@@ -2,6 +2,7 @@ package integration
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -132,10 +133,27 @@ func (db *DBProducerWithMetrics) OpenDB(name string) (kvdb.Store, error) {
 	}
 	logger := log.New("database", name)
 	dm.log = logger
-	dm.diskReadMeter = metrics.GetOrRegisterMeter("opera/chaindata/"+name+"/disk/read", nil)
-	dm.diskWriteMeter = metrics.GetOrRegisterMeter("opera/chaindata/"+name+"/disk/write", nil)
+	metricName := replaceNonAlphanumeric(name)
+	dm.diskReadMeter = metrics.GetOrRegisterMeter("opera/chaindata/"+metricName+"/disk/read", nil)
+	dm.diskWriteMeter = metrics.GetOrRegisterMeter("opera/chaindata/"+metricName+"/disk/write", nil)
 
 	// Start up the metrics gathering and return
 	go dm.meter(metricsGatheringInterval)
 	return dm, nil
+}
+
+func replaceNonAlphanumeric(s string) string {
+	var result strings.Builder
+	for i := 0; i < len(s); i++ {
+		b := s[i]
+		if ('a' <= b && b <= 'z') ||
+			('A' <= b && b <= 'Z') ||
+			('0' <= b && b <= '9') ||
+			b == ' ' {
+			result.WriteByte(b)
+		} else {
+			result.WriteString(strconv.Itoa(int(b)))
+		}
+	}
+	return result.String()
 }
