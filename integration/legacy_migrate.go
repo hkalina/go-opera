@@ -101,7 +101,12 @@ func transform(m transformTask) error {
 			for _, k := range keys {
 				_ = src.Delete(k)
 			}
-			_ = src.Compact(keys[0], keys[len(keys)-1])
+			err = src.Compact(keys[0], keys[len(keys)-1])
+			if err != nil {
+				log.Warn("Compact during legacy migrate failed; %s", err)
+			} else {
+				log.Info("Compact during legacy migrate succeed")
+			}
 			// reopen source DB too if it doesn't release data
 			if freeSpace < 50*opt.GiB {
 				_ = src.Close()
