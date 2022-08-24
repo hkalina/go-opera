@@ -18,6 +18,7 @@ import (
 	"github.com/Fantom-foundation/go-opera/logger"
 	"github.com/Fantom-foundation/go-opera/utils/adapters/snap2kvdb"
 	"github.com/Fantom-foundation/go-opera/utils/eventid"
+	"github.com/Fantom-foundation/go-opera/utils/randat"
 	"github.com/Fantom-foundation/go-opera/utils/rlpstore"
 	"github.com/Fantom-foundation/go-opera/utils/switchable"
 )
@@ -50,15 +51,15 @@ type Store struct {
 		// API-only
 		BlockHashes kvdb.Store `table:"B"`
 
-		LlrState           kvdb.Store `table:"!"`
-		LlrBlockResults    kvdb.Store `table:"@"`
-		LlrEpochResults    kvdb.Store `table:"#"`
-		LlrBlockVotes      kvdb.Store `table:"$"`
-		LlrBlockVotesIndex kvdb.Store `table:"%"`
-		LlrEpochVotes      kvdb.Store `table:"^"`
-		LlrEpochVoteIndex  kvdb.Store `table:"&"`
-		LlrLastBlockVotes  kvdb.Store `table:"*"`
-		LlrLastEpochVote   kvdb.Store `table:"("`
+		LlrState           kvdb.Store `table:"S"`
+		LlrBlockResults    kvdb.Store `table:"R"`
+		LlrEpochResults    kvdb.Store `table:"Q"`
+		LlrBlockVotes      kvdb.Store `table:"T"`
+		LlrBlockVotesIndex kvdb.Store `table:"J"`
+		LlrEpochVotes      kvdb.Store `table:"E"`
+		LlrEpochVoteIndex  kvdb.Store `table:"I"`
+		LlrLastBlockVotes  kvdb.Store `table:"G"`
+		LlrLastEpochVote   kvdb.Store `table:"F"`
 	}
 
 	prevFlushTime time.Time
@@ -165,14 +166,16 @@ func (s *Store) Close() {
 }
 
 func (s *Store) IsCommitNeeded() bool {
-	return s.isCommitNeeded(100, 100)
+	// randomize flushing criteria for each epoch so that nodes would desynchronize flushes
+	ratio := 900 + randat.RandAt(uint64(s.GetEpoch()))%100
+	return s.isCommitNeeded(ratio, ratio)
 }
 
-func (s *Store) isCommitNeeded(sc, tc int) bool {
-	period := s.cfg.MaxNonFlushedPeriod * time.Duration(sc) / 100
-	size := (s.cfg.MaxNonFlushedSize / 2) * tc / 100
+func (s *Store) isCommitNeeded(sc, tc uint64) bool {
+	period := s.cfg.MaxNonFlushedPeriod * time.Duration(sc) / 1000
+	size := (uint64(s.cfg.MaxNonFlushedSize) / 2) * tc / 1000
 	return time.Since(s.prevFlushTime) > period ||
-		s.dbs.NotFlushedSizeEst() > size
+		uint64(s.dbs.NotFlushedSizeEst()) > size
 }
 
 // commitEVM commits EVM storage
