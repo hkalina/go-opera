@@ -365,7 +365,9 @@ func DBProducer(chaindataDir string, scale cachescale.Func) kvdb.IterableDBProdu
 		chaindataDir, _ = ioutil.TempDir("", "opera-integration")
 	}
 
-	return pebble.NewProducer(chaindataDir)
+	return pebble.NewProducer(chaindataDir, func(name string) (int, int) {
+		return dbCacheSize(name, scale.I), 1000
+	})
 
 	/*
 	if strings.HasPrefix(chaindataDir, "pebble:") {
