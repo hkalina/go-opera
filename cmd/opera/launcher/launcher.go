@@ -138,6 +138,7 @@ func initFlags() {
 		utils.HTTPPortFlag,
 		utils.HTTPCORSDomainFlag,
 		utils.HTTPVirtualHostsFlag,
+		utils.HTTPExecutionTimeLimit,
 		utils.GraphQLEnabledFlag,
 		utils.GraphQLCORSDomainFlag,
 		utils.GraphQLVirtualHostsFlag,
@@ -149,9 +150,9 @@ func initFlags() {
 		utils.WSApiFlag,
 		utils.WSAllowedOriginsFlag,
 		utils.WSPathPrefixFlag,
+		utils.WSExecutionTimeLimit,
 		utils.IPCDisabledFlag,
 		utils.IPCPathFlag,
-		utils.RPCExecutionTimeLimit,
 		RPCGlobalGasCapFlag,
 		RPCGlobalTxFeeCapFlag,
 	}
