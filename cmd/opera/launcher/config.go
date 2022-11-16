@@ -116,6 +116,11 @@ var (
 		Name:  "exitwhensynced.epoch",
 		Usage: "Exits after synchronisation reaches the required epoch",
 	}
+	// TraceNodeFlag enables transaction tracing recording
+	TraceNodeFlag = cli.BoolFlag{
+		Name:  "tracenode",
+		Usage: "If present, than this node records inner transaction traces",
+	}
 
 	DBMigrationModeFlag = cli.StringFlag{
 		Name:  "db.migration.mode",
@@ -463,6 +468,10 @@ func mayMakeAllConfigs(ctx *cli.Context) (*config, error) {
 
 	if err := cfg.Opera.Validate(); err != nil {
 		return nil, err
+	}
+
+	if ctx.GlobalIsSet(TraceNodeFlag.Name) {
+		cfg.OperaStore.TraceTransactions = true
 	}
 
 	return &cfg, nil

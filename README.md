@@ -2,10 +2,9 @@
 
 EVM-compatible chain secured by the Lachesis consensus algorithm.
 
-## Building the source
+## Opera transaction tracing node
 
-Building `opera` requires both a Go (version 1.14 or later) and a C compiler. You can install
-them using your favourite package manager. Once the dependencies are installed, run
+Node with implemented OpenEthereum(Parity) transaction tracing API.
 
 ```shell
 make opera
@@ -57,92 +56,38 @@ $ opera --nousb --validator.id YOUR_ID --validator.pubkey 0xYOUR_PUBKEY
 `opera` will prompt you for a password to decrypt your validator private key. Optionally, you can
 specify password with a file using `--validator.password` flag.
 
-#### Participation in discovery
+This branch is for a transaction tracing node. It's not recommended to use this branch for an Opera validator.
 
-Optionally you can specify your public IP to straighten connectivity of the network.
-Ensure your TCP/UDP p2p port (5050 by default) isn't blocked by your firewall.
+### Available methods
 
 ```shell
-$ opera --nat extip:1.2.3.4
+trace_get
+trace_transaction
+trace_block
+trace_filter
 ```
 
-## Dev
+### Building the source
 
-### Running testnet
+Building `opera` requires a Go (version 1.15 or later) and a C compiler. Once the dependencies are installed, run:
 
-The network is specified only by its genesis file, so running a testnet node is equivalent to
-using a testnet genesis file instead of a mainnet genesis file:
 ```shell
-$ opera --genesis /path/to/testnet.g # launch node
+make opera
 ```
+The build output is ```build/opera``` executable.
 
-It may be convenient to use a separate datadir for your testnet node to avoid collisions with other networks:
+### Running `go-opera` node with tracing ability
+
+It's recommended to launch new node from scratch with CLI option `--tracenode` as this flag has to be set to use stored transaction traces.
+
 ```shell
-$ opera --genesis /path/to/testnet.g --datadir /path/to/datadir # launch node
-$ opera --datadir /path/to/datadir account new # create new account
-$ opera --datadir /path/to/datadir attach # attach to IPC
+$ opera --genesis /path/to/genesis.g --tracenode
 ```
 
-### Testing
+### Tracing pre-genesis blocks
+If you want to use tracing for pre-genesis blocks, you'll need to import evm history. You can find instructions here: [importing evm history](https://github.com/Fantom-foundation/lachesis_launch/blob/master/docs/import-evm-history.sh)
 
-Lachesis has extensive unit-testing. Use the Go tool to run tests:
-```shell
-go test ./...
-```
-
-If everything goes well, it should output something along these lines:
-```
-ok  	github.com/Fantom-foundation/go-opera/app	0.033s
-?   	github.com/Fantom-foundation/go-opera/cmd/cmdtest	[no test files]
-ok  	github.com/Fantom-foundation/go-opera/cmd/opera	13.890s
-?   	github.com/Fantom-foundation/go-opera/cmd/opera/metrics	[no test files]
-?   	github.com/Fantom-foundation/go-opera/cmd/opera/tracing	[no test files]
-?   	github.com/Fantom-foundation/go-opera/crypto	[no test files]
-?   	github.com/Fantom-foundation/go-opera/debug	[no test files]
-?   	github.com/Fantom-foundation/go-opera/ethapi	[no test files]
-?   	github.com/Fantom-foundation/go-opera/eventcheck	[no test files]
-?   	github.com/Fantom-foundation/go-opera/eventcheck/basiccheck	[no test files]
-?   	github.com/Fantom-foundation/go-opera/eventcheck/gaspowercheck	[no test files]
-?   	github.com/Fantom-foundation/go-opera/eventcheck/heavycheck	[no test files]
-?   	github.com/Fantom-foundation/go-opera/eventcheck/parentscheck	[no test files]
-ok  	github.com/Fantom-foundation/go-opera/evmcore	6.322s
-?   	github.com/Fantom-foundation/go-opera/gossip	[no test files]
-?   	github.com/Fantom-foundation/go-opera/gossip/emitter	[no test files]
-ok  	github.com/Fantom-foundation/go-opera/gossip/filters	1.250s
-?   	github.com/Fantom-foundation/go-opera/gossip/gasprice	[no test files]
-?   	github.com/Fantom-foundation/go-opera/gossip/occuredtxs	[no test files]
-?   	github.com/Fantom-foundation/go-opera/gossip/piecefunc	[no test files]
-ok  	github.com/Fantom-foundation/go-opera/integration	21.640s
-```
-
-Also it is tested with [fuzzing](./FUZZING.md).
-
-
-### Operating a private network (fakenet)
-
-Fakenet is a private network optimized for your private testing.
-It'll generate a genesis containing N validators with equal stakes.
-To launch a validator in this network, all you need to do is specify a validator ID you're willing to launch.
-
-Pay attention that validator's private keys are deterministically generated in this network, so you must use it only for private testing.
-
-Maintaining your own private network is more involved as a lot of configurations taken for
-granted in the official networks need to be manually set up.
-
-To run the fakenet with just one validator (which will work practically as a PoA blockchain), use:
-```shell
-$ opera --fakenet 1/1
-```
-
-To run the fakenet with 5 validators, run the command for each validator:
-```shell
-$ opera --fakenet 1/5 # first node, use 2/5 for second node
-```
-
-If you have to launch a non-validator node in fakenet, use 0 as ID:
-```shell
-$ opera --fakenet 0/5
-```
+Then enable JSON-RPC API with option `trace` (`--http.api=eth,web3,net,txpool,ftm,sfc,trace"`)
 
 After that, you have to connect your nodes. Either connect them statically or specify a bootnode:
 ```shell

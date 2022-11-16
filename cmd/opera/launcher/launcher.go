@@ -120,6 +120,7 @@ func initFlags() {
 		validatorIDFlag,
 		validatorPubkeyFlag,
 		validatorPasswordFlag,
+		TraceNodeFlag,
 		SyncModeFlag,
 		GCModeFlag,
 		DBPresetFlag,
@@ -219,6 +220,7 @@ func init() {
 		importCommand,
 		exportCommand,
 		checkCommand,
+		deleteCommand,
 		// See snapshot.go
 		snapshotCommand,
 		// See dbcmd.go

@@ -25,6 +25,7 @@ import (
 	"github.com/Fantom-foundation/go-opera/inter"
 	"github.com/Fantom-foundation/go-opera/inter/iblockproc"
 	"github.com/Fantom-foundation/go-opera/opera"
+	"github.com/Fantom-foundation/go-opera/txtrace"
 	"github.com/Fantom-foundation/go-opera/utils"
 )
 
@@ -250,7 +251,15 @@ func consensusCallbackBeginBlockFn(
 					})
 				}
 
-				evmProcessor := blockProc.EVMModule.Start(blockCtx, statedb, evmStateReader, onNewLogAll, es.Rules, es.Rules.EvmChainConfig(store.GetUpgradeHeights()))
+				// Providing default config
+				// In case of trace transaction node, this config is changed
+				evmCfg := opera.DefaultVMConfig
+				if store.txtrace != nil {
+					evmCfg.Debug = true
+					evmCfg.Tracer = txtrace.NewTraceStructLogger(store.txtrace)
+				}
+
+				evmProcessor := blockProc.EVMModule.Start(blockCtx, statedb, evmStateReader, onNewLogAll, es.Rules, evmCfg, es.Rules.EvmChainConfig(store.GetUpgradeHeights()))
 				executionStart := time.Now()
 
 				// Execute pre-internal transactions
@@ -473,7 +482,14 @@ func (s *Service) ReexecuteBlocks(from, to idx.Block) {
 			log.Crit("Failue to re-execute blocks", "err", err)
 		}
 		es := s.store.GetHistoryEpochState(s.store.FindBlockEpoch(b))
-		evmProcessor := blockProc.EVMModule.Start(blockCtx, statedb, evmStateReader, func(t *types.Log) {}, es.Rules, es.Rules.EvmChainConfig(upgradeHeights))
+		// Providing default config
+		// In case of trace transaction node, this config is changed
+		evmCfg := opera.DefaultVMConfig
+		if s.store.txtrace != nil {
+			evmCfg.Debug = true
+			evmCfg.Tracer = txtrace.NewTraceStructLogger(s.store.txtrace)
+		}
+		evmProcessor := blockProc.EVMModule.Start(blockCtx, statedb, evmStateReader, func(t *types.Log) {}, es.Rules, evmCfg, es.Rules.EvmChainConfig(upgradeHeights))
 		txs := s.store.GetBlockTxs(b, block)
 		evmProcessor.Execute(txs)
 		evmProcessor.Finalize()
